@@ -1,0 +1,9 @@
+#!/usr/bin/env perl6
+
+use MoarVM::Remote;
+
+
+sub MAIN(Int $port) {
+    my $remote = await MoarVM::Remote.connect($port);
+    say "success!";
+}
