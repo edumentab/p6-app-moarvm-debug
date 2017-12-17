@@ -6,4 +6,25 @@ use MoarVM::Remote;
 sub MAIN(Int $port) {
     my $remote = await MoarVM::Remote.connect($port);
     say "success!";
+
+    while prompt("> ") -> $_ {
+        when / sus[p[e[nd?]?]?]? (\d+) / {
+            say "trying to suspend thread $0";
+            say await $remote.suspend($0.Int.self);
+        }
+        when / res[u[m[e?]?]?]? (\d+) / {
+            say "trying to resume thread $0";
+            say await $remote.resume($0.Int.self);
+        }
+        when / dump (\d+) / {
+            say "thread $0 shall dump backtrace";
+            say await $remote.dump($0.Int.self).base(16);
+        }
+        when / tl / {
+            say await $remote.threads-list;
+        }
+        default {
+            say "oh no! don't know what to do with $_"
+        }
+    }
 }
