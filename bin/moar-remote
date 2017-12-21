@@ -8,17 +8,17 @@ sub MAIN(Int $port) {
     say "success!";
 
     while prompt("> ") -> $_ {
-        when / sus[p[e[nd?]?]?]? (\d+) / {
+        when / sus[p[e[nd?]?]?]? (\d+)? / {
             say "trying to suspend thread $0";
-            say await $remote.suspend($0.Int.self);
+            say await $remote.suspend($0 ?? $0.Int.self !! Whatever);
         }
-        when / res[u[m[e?]?]?]? (\d+) / {
+        when / res[u[m[e?]?]?]? (\d+)? / {
             say "trying to resume thread $0";
-            say await $remote.resume($0.Int.self);
+            say await $remote.resume($0 ?? $0.Int.self !! Whatever);
         }
         when / dump (\d+) / {
             say "thread $0 shall dump backtrace";
-            say await $remote.dump($0.Int.self).base(16);
+            say await $remote.dump($0.Int.self);
         }
         when / tl / {
             say await $remote.threads-list;
