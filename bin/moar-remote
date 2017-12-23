@@ -9,15 +9,15 @@ sub MAIN(Int $port) {
     say "success!";
 
     while prompt("> ") -> $_ {
-        when / sus[p[e[nd?]?]?]? <.ws> (\d+)? / {
+        when /:s sus[p[e[nd?]?]?]? (\d+)? / {
             say "trying to suspend thread $0";
             say await $remote.suspend($0 ?? $0.Int.self !! Whatever);
         }
-        when / res[u[m[e?]?]?]? <.ws> (\d+)? / {
+        when /:s res[u[m[e?]?]?]? (\d+)? / {
             say "trying to resume thread $0";
             say await $remote.resume($0 ?? $0.Int.self !! Whatever);
         }
-        when / dump <.ws> (\d+) / {
+        when /:s dump (\d+) / {
             say (await $remote.dump($0.Int.self)).&to-json(:pretty);
         }
         when / tl / {
