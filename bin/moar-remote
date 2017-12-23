@@ -23,6 +23,9 @@ sub MAIN(Int $port) {
         when / tl / {
             say (await $remote.threads-list).&to-json(:pretty);
         }
+        when /:s ctxhandle (\d+) (\d+) / {
+            say (await $remote.context-handle($0.Int.self, $1.Int.self)).&to-json(:pretty);
+        }
         default {
             say "oh no! don't know what to do with $_"
         }
