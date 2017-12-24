@@ -26,8 +26,26 @@ sub MAIN(Int $port) {
         when /:s ctxhandle (\d+) (\d+) / {
             say (await $remote.context-handle($0.Int.self, $1.Int.self)).&to-json(:pretty);
         }
+        when /:s callerhandle (\d+) / {
+            my $result = $remote.caller-context-handle($0.Int.self);
+            say $result.perl;
+            say await $result;
+        }
+        when /:s coderef (\d+) (\d+) / {
+            my $result = await $remote.coderef-handle($0.Int.self, $1.Int.self);
+            say $result.&to-json(:pretty);
+        }
+        when /:s lexicals (\d+) / {
+            my $result = await $remote.lexicals($0.Int.self);
+            say $result.&to-json(:pretty);
+        }
         default {
             say "oh no! don't know what to do with $_"
+        }
+        CATCH {
+            default {
+                .say;
+            }
         }
     }
 }
