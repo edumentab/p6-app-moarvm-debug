@@ -47,7 +47,21 @@ sub MAIN(Int $port) {
             say $result.&to-json(:pretty);
         }
         default {
-            say "oh no! don't know what to do with $_"
+            say "oh no! don't know what to do with $_";
+
+            say "supported commands:";
+            say q:to/CMDS/;
+                /:s sus[p[e[nd?]?]?]? (\d+)? /
+                /:s res[u[m[e?]?]?]? (\d+)? /
+                /:s dump (\d+) /
+                / tl /
+                /:s ctxhandle (\d+) (\d+) /
+                /:s caller (\d+) /
+                /:s outer (\d+) /
+                /:s coderef (\d+) (\d+) /
+                /:s lexicals (\d+) /
+                /:s attributes (\d+) /
+                CMDS
         }
         CATCH {
             default {
