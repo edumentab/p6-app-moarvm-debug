@@ -9,6 +9,9 @@ sub MAIN(Int $port) {
     say "success!";
 
     while prompt("> ") -> $_ {
+        when /:s execution / {
+            say (await $remote.is-execution-suspended()) ?? "Execution suspended" !! "Execution not suspended";
+        }
         when /:s sus[p[e[nd?]?]?]? (\d+)? / {
             say "trying to suspend thread $0";
             say await $remote.suspend($0 ?? $0.Int.self !! Whatever);
