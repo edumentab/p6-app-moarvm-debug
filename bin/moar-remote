@@ -17,7 +17,8 @@ sub MAIN(Int $port) {
             say await $remote.suspend($0 ?? $0.Int.self !! Whatever);
         }
         when /:s res[u[m[e?]?]?]? (\d+)? / {
-            say "trying to resume thread $0";
+            say "trying to resume thread $0" with $0;
+            say "trying to resume all threads" without $0;
             say await $remote.resume($0 ?? $0.Int.self !! Whatever);
         }
         when /:s dump (\d+) / {
