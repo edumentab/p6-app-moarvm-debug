@@ -52,6 +52,10 @@ sub MAIN(Int $port) {
             my $result = await $remote.attributes($0.Int.self);
             say $result.&to-json(:pretty);
         }
+        when /:s clearbp \"(.*?)\" (\d+) / {
+            my $result = await $remote.clear-breakpoints($0.Str, $1.Int);
+            say $result.&to-json(:pretty);
+        }
         when /:s [breakpoint|bp] \"(.*?)\" (\d+) (\d?) (\d?) / {
             my $result = await $remote.breakpoint($0.Str, $1.Int, suspend => so ($2 && $2.Int), stacktrace => so ($3 && $3.Int));
             say $result.&to-json(:pretty);
@@ -71,6 +75,8 @@ sub MAIN(Int $port) {
                 /:s coderef (\d+) (\d+) /
                 /:s lexicals (\d+) /
                 /:s attributes (\d+) /
+                /:s [breakpoint|bp] \"(.*?)\" (\d+) (\d?) (\d?) /
+                /:s clearbp \"(.*?)\" (\d+) /
                 CMDS
         }
         CATCH {
