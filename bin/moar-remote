@@ -36,6 +36,8 @@ sub MAIN(Int $port) {
 
     $remote.events.tap({ say "Got event: "; .say });
 
+    my @last-command-handles;
+
     while prompt("> ") -> $_ {
         when /:s execution / {
             say (await $remote.is-execution-suspended()) ?? "Execution suspended" !! "Execution not suspended";
@@ -76,9 +78,13 @@ sub MAIN(Int $port) {
             my @allframes = (await $remote.dump($0.Int.self));
             my $framecount = +@allframes;
 
+            @last-command-handles = Empty;
+
             my @chunks = gather for (^$framecount).reverse {
                 my $handle = await $remote.context-handle($0.Int.self, $_);
                 my $lexicals = (await $remote.lexicals($handle));
+
+                @last-command-handles.push($handle);
 
                 my $framedetails = "$_<name> ($_<file>:$_<line>)" given @allframes[$_];
 
@@ -88,10 +94,14 @@ sub MAIN(Int $port) {
                             "container" xx ?$<container>,
                             "value: {$<value>//""}" xx ($<value>:exists);
 
+                        @last-command-handles.push($<handle>.Int) with $<handle>;
+
                         take $<handle> // "", $<type> || $<kind>, $n, @attributes.join(", ");
                     }).cache
             };
             print-table(@chunks);
+            say "";
+            say "call 'release all' to free these @last-command-handles.elems() handles";
         }
         when /:s lexicals (\d+) / {
             my $result = await $remote.lexicals($0.Int.self);
@@ -111,6 +121,12 @@ sub MAIN(Int $port) {
         }
         when /:s release[handles]? (\d+)+ % \s+/ {
             my $result = await $remote.release-handles($0>>.Int);
+            say $result.&to-json(:pretty);
+        }
+        when /:s release all [handles]?/ {
+            say "releasing @last-command-handles.elems() handles";
+            my $result = await $remote.release-handles(@last-command-handles);
+            @last-command-handles = Empty;
             say $result.&to-json(:pretty);
         }
         default {
