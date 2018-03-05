@@ -109,6 +109,10 @@ sub MAIN(Int $port) {
             my $result = await $remote.breakpoint($0.Str, $1.Int, suspend => so ($2 && $2.Int), stacktrace => so ($3 && $3.Int));
             say $result.&to-json(:pretty);
         }
+        when /:s release[handles]? (\d+)+ % \s+/ {
+            my $result = await $remote.release-handles($0>>.Int);
+            say $result.&to-json(:pretty);
+        }
         default {
             say "oh no! don't know what to do with $_";
 
