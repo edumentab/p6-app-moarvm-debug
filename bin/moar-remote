@@ -47,7 +47,7 @@ sub MAIN(Int $port) {
             @last-command-handles.push($<handle>.Int) with $<handle>;
 
             take $<handle> // "", $<type> || $<kind>, $n, @attributes.join(", ");
-        }).cache
+        }).sort(*.[0]).cache
     }
 
     while prompt("> ") -> $_ {
