@@ -139,23 +139,54 @@ sub MAIN(Int $port) {
             @last-command-handles = Empty;
         }
         default {
-            say "oh no! don't know what to do with $_";
+            say "oh no! don't know what to do with $_\n" if $_;
 
-            say "supported commands:";
             say q:to/CMDS/;
-                /:s sus[p[e[nd?]?]?]? (\d+)? /
-                /:s res[u[m[e?]?]?]? (\d+)? /
-                /:s dump (\d+) /
-                / tl /
-                /:s ctxhandle (\d+) (\d+) /
-                /:s caller (\d+) /
-                /:s outer (\d+) /
-                /:s coderef (\d+) (\d+) /
-                /:s lexicals (\d+) /
-                /:s attributes (\d+) /
-                /:s [breakpoint|bp] \"(.*?)\" (\d+) (\d?) (\d?) /
-                /:s clearbp \"(.*?)\" (\d+) /
-                /:s release all [handles]? [keep (\d+)+ % \s+]?/ {
+                Supported commands:
+
+                dump [thread number]
+                    Print a stacktrace for the given thread.
+
+                suspend [thread number]
+                resume  [thread number]
+                    Suspend or resume a thread, or all thread if no thread number is passed.
+
+                tl
+                    Output a list of all threads and their status.
+
+                ctxhandle [thread number] [frame number]
+                    Retrieve a handle for a frame (MVMContext) on the thread's stack.
+
+                caller [handle (MVMContext)]
+                    Retrieve a handle for a frame's caller frame (MVMContext)
+
+                outer [handle (MVMContext)]
+                    Retrieve a handle for a frame's outer frame (MVMContext)
+
+                coderef [thread number] [frame number]
+                    Retrieve a handle for the code object (MVMCode) for a frame on a thread's stack.
+
+                lexicals [handle (MVMContext)]
+                    Retrieve a list of lexicals and handlers for any object lexicals for a given frame.
+
+                attributes [handle (MVMObject)]
+                    Retrieve a list of all attributes an object has, along with handles for any object values.
+
+                release [handle handle ...]
+                    Releases handles, so the corresponding objects can be garbage collected.
+
+                release all [keep [handle handle ...]]
+                    Release all handles allocated by the previous command, optionally keeping
+                    the specified handles for further use.
+
+                [breakpoint|bp] "[file path]" [line number] [suspend on hit]? [send stacktrace on hit]? /
+                    Sets a breakpoint for a given filename and line number.
+                    If suspend is 1, execution of the thread that hit it will stop.
+                    If the stacktrace is requested, every hit will send a stack trace along with it.
+
+                clearbp "[file path]" [line number]
+                    Clear any breakpoints for a given filename and line number.
+
                 CMDS
         }
         CATCH {
