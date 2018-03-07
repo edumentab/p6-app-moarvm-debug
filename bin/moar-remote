@@ -53,7 +53,9 @@ sub MAIN(Int $port) {
             say await $remote.resume($0 ?? $0.Int.self !! Whatever);
         }
         when /:s dump (\d+) / {
-            say (await $remote.dump($0.Int.self)).&to-json(:pretty);
+            my @frames = await $remote.dump($0.Int.self);
+            my @table = "Stack trace of thread $0.Int()" => @frames.map({ (++$, .<name> || "<anon>", "$_.<file>:$_.<line>", .<bytecode_file> // "none") }).cache;
+            print-table @table;
         }
         when / tl / {
             say (await $remote.threads-list).&to-json(:pretty);
