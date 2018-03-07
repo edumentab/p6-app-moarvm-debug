@@ -43,16 +43,21 @@ sub MAIN(Int $port) {
 
     my @last-command-handles;
 
+    sub format-attributes($lex-or-attr) {
+        flat "concrete" xx ?$_<concrete>,
+             "container" xx ?$_<container>,
+             "value: {$_<value>//""}" xx ($_<value>:exists)
+                 given $lex-or-attr;
+    }
+
     sub format-lexicals-for-frame($lexicals) {
-        (gather for $lexicals.kv -> $n, $/ {
-            my @attributes = flat "concrete" xx ?$<concrete>,
-            "container" xx ?$<container>,
-            "value: {$<value>//""}" xx ($<value>:exists);
+        gather for $lexicals.kv -> $n, $/ {
+            my @attributes = format-attributes($/);
 
             @last-command-handles.push($<handle>.Int) with $<handle>;
 
             take $<handle> // "", $<type> || $<kind>, $n, @attributes.join(", ");
-        }).sort(*.[0]).cache
+        }.sort(*.[0]).cache
     }
 
     while prompt("> ") -> $_ {
