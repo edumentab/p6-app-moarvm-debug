@@ -177,6 +177,23 @@ sub MAIN(Int $port) {
                 }.cache;
             print-table(@table);
         }
+        when /:s associatives (\d+) / {
+            my $result = await $remote.object-associatives($0.Int.self);
+            my @table = "Associatives in handle $0.Int()" =>
+                gather {
+                    if $result<kind> eq "obj" {
+                        @last-command-handles = Empty;
+                        for $result<contents>.list {
+                            my @attributes = format-attributes(.value);
+                            @last-command-handles.push(.value<handle>);
+                            take [.value<handle>, .key, .value<type>, @attributes.join(", ")];
+                        }
+                    } else {
+                        take ["NYI"];
+                    }
+                }.cache;
+            print-table(@table);
+        }
         when /:s clearbp \"(.*?)\" (\d+) / {
             my $result = await $remote.clear-breakpoints($0.Str, $1.Int);
             say $result.&to-json(:pretty);
