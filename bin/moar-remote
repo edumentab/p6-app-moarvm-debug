@@ -126,6 +126,21 @@ sub MAIN(Int $port) {
             my @table = "Lexicals of handle $0.Int()" => format-lexicals-for-frame($result);
             print-table @table;
         }
+        when /:s metadata (\d+) / {
+            my $result = await $remote.object-metadata($0.Int.self);
+            my @table = "Metadata of handle $0.Int()" =>
+                gather {
+                    my @features =
+                        flat "positional"  xx ?$result<pos_features>,
+                             "associative" xx ?$result<ass_features>,
+                             "attributes"  xx ?$result<attr_features>;
+                    take ["Features", @features.join(", ") || "none"];
+                    for $result<metadata>.list {
+                        take [.key, .value];
+                    }
+                }.cache;
+            print-table @table;
+        }
         when /:s attributes (\d+) / {
             my $result = await $remote.attributes($0.Int.self);
             my %by-class = $result.categorize(*.<class>);
@@ -138,6 +153,24 @@ sub MAIN(Int $port) {
                     }.cache;
                 }.cache;
             say "Attributes for handle $0.Int()";
+            print-table(@table);
+        }
+        when /:s positionals (\d+) / {
+            my $result = await $remote.object-positionals($0.Int.self);
+            my @table = "Positionals in handle $0.Int()" =>
+                gather {
+                    my $cnt = $result<start>;
+                    if $result<kind> eq "obj" {
+                        for $result<contents>.list {
+                            my @attributes = format-attributes($_);
+                            take [$cnt++, $_<handle>, $_<type>, @attributes.join(", ")];
+                        }
+                    } else {
+                        for $result<contents>.list {
+                            take [$cnt++, $_];
+                        }
+                    }
+                }.cache;
             print-table(@table);
         }
         when /:s clearbp \"(.*?)\" (\d+) / {
@@ -192,8 +225,14 @@ sub MAIN(Int $port) {
                 lexicals [handle (MVMContext)]
                     Retrieve a list of lexicals and handlers for any object lexicals for a given frame.
 
+                metadata [handle (MVMObject)]
+                    Retrieve a bunch of metadata about an object.
+
                 attributes [handle (MVMObject)]
                     Retrieve a list of all attributes an object has, along with handles for any object values.
+
+                positionals [handle (MVMObject)]
+                    Retrieve the contents of an object that has positional properties, like an array.
 
                 release [handle handle ...]
                     Releases handles, so the corresponding objects can be garbage collected.
