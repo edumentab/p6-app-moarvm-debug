@@ -210,6 +210,8 @@ sub MAIN(Int $port) {
                 clearbp "[file path]" [line number]
                     Clear any breakpoints for a given filename and line number.
 
+                debug [on|off]
+                    Output debugging information.
                 CMDS
         }
         CATCH {
