@@ -134,11 +134,11 @@ sub MAIN(Int $port) {
                         flat "positional"  xx ?$result<pos_features>,
                              "associative" xx ?$result<ass_features>,
                              "attributes"  xx ?$result<attr_features>;
-                    take ["Features", @features.join(", ") || "none", ""];
-                    take ["Size", $result<size> // 0, $result<unmanaged_size> // 0];
+                    take ["Features", @features.join(", ") || "none"];
+                    take ["Size", ($result<size> // 0) ~ " + unmanaged: " ~ ($result<unmanaged_size> // 0)];
                     for $result.list.sort(*.key) {
                         next if .key eq any <pos_features ass_features attr_features size unmanaged_size>;
-                        take [.key, .value // "-", ""];
+                        take [.key, .value // "-"];
                     }
                 }.cache;
             print-table @table;
