@@ -128,7 +128,17 @@ sub MAIN(Int $port) {
         }
         when /:s attributes (\d+) / {
             my $result = await $remote.attributes($0.Int.self);
-            say $result.&to-json(:pretty);
+            my %by-class = $result.categorize(*.<class>);
+            my @table = gather for %by-class {
+                take "From class $_.key()" =>
+                    gather for @($_.value) {
+                        my @attributes = format-attributes($_);
+
+                        take (.<handle> // "", (.<kind> eq "obj" ?? .<type> !! .<kind>), .<name>, @attributes.join(", "))
+                    }.cache;
+                }.cache;
+            say "Attributes for handle $0.Int()";
+            print-table(@table);
         }
         when /:s clearbp \"(.*?)\" (\d+) / {
             my $result = await $remote.clear-breakpoints($0.Str, $1.Int);
