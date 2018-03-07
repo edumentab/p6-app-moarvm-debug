@@ -158,6 +158,9 @@ sub MAIN(Int $port) {
             my $result = await $remote.release-handles(@free);
             @last-command-handles = Empty;
         }
+        when /:s debug (on|off)/ {
+            $remote.debug = $0.Str eq "on";
+        }
         default {
             say "oh no! don't know what to do with $_\n" if $_;
 
