@@ -5,6 +5,11 @@ use JSON::Fast;
 
 sub print-table(@chunks) {
     my $num-cols = [max] @chunks>>.value.map([max] *>>.elems).flat;
+    if $num-cols == -Inf {
+        say @chunks.perl;
+        try say @chunks[0].key, ": empty.";
+        return;
+    }
     my @col-sizes = 0 xx $num-cols;
     for @chunks {
         for .value {
