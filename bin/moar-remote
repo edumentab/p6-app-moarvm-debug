@@ -163,8 +163,10 @@ sub MAIN(Int $port) {
                 gather {
                     my $cnt = $result<start>;
                     if $result<kind> eq "obj" {
+                        @last-command-handles = Empty;
                         for $result<contents>.list {
                             my @attributes = format-attributes($_);
+                            @last-command-handles.push($_<handle>);
                             take [$cnt++, $_<handle>, $_<type>, @attributes.join(", ")];
                         }
                     } else {
