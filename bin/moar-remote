@@ -125,11 +125,11 @@ sub MAIN(Int $port) {
             my $result = await $remote.release-handles($0>>.Int);
             say $result.&to-json(:pretty);
         }
-        when /:s release all [handles]?/ {
-            say "releasing @last-command-handles.elems() handles";
-            my $result = await $remote.release-handles(@last-command-handles);
+        when /:s release all [handles]? [keep (\d+)+ % \s+]?/ {
+            my @free = (@last-command-handles (-) $0.List>>.Int).keys;
+            say "releasing @free.elems() handles{ " keeping $0.List.elems()" if $0 }";
+            my $result = await $remote.release-handles(@free);
             @last-command-handles = Empty;
-            say $result.&to-json(:pretty);
         }
         default {
             say "oh no! don't know what to do with $_";
@@ -148,6 +148,7 @@ sub MAIN(Int $port) {
                 /:s attributes (\d+) /
                 /:s [breakpoint|bp] \"(.*?)\" (\d+) (\d?) (\d?) /
                 /:s clearbp \"(.*?)\" (\d+) /
+                /:s release all [handles]? [keep (\d+)+ % \s+]?/ {
                 CMDS
         }
         CATCH {
