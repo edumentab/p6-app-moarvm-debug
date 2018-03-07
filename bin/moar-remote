@@ -13,7 +13,7 @@ sub print-table(@chunks) {
     my @col-sizes = 0 xx $num-cols;
     for @chunks {
         for .value {
-            @col-sizes >>[max]=<< $_>>.chars
+            @col-sizes >>[max]=>> $_>>.Str>>.chars;
         }
     }
     for @chunks -> $chunk {
@@ -29,7 +29,7 @@ sub print-table(@chunks) {
     }
 }
 
-sub pad($str, $size) {
+sub pad(Str() $str, $size) {
     my $result = " " x $size;
     $result.substr-rw(0..$str.chars) = $str;
     $result;
