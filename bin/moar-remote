@@ -38,6 +38,18 @@ sub MAIN(Int $port) {
 
     my @last-command-handles;
 
+    sub format-lexicals-for-frame($lexicals) {
+        (gather for $lexicals.kv -> $n, $/ {
+            my @attributes = flat "concrete" xx ?$<concrete>,
+            "container" xx ?$<container>,
+            "value: {$<value>//""}" xx ($<value>:exists);
+
+            @last-command-handles.push($<handle>.Int) with $<handle>;
+
+            take $<handle> // "", $<type> || $<kind>, $n, @attributes.join(", ");
+        }).cache
+    }
+
     while prompt("> ") -> $_ {
         when /:s execution / {
             say (await $remote.is-execution-suspended()) ?? "Execution suspended" !! "Execution not suspended";
@@ -90,24 +102,19 @@ sub MAIN(Int $port) {
 
                 my $framedetails = "$_<name> ($_<file>:$_<line>)" given @allframes[$_];
 
-                take "Frame $_ - $framedetails - handle: $handle" =>
-                    (gather for $lexicals.kv -> $n, $/ {
-                        my @attributes = flat "concrete" xx ?$<concrete>,
-                            "container" xx ?$<container>,
-                            "value: {$<value>//""}" xx ($<value>:exists);
-
-                        @last-command-handles.push($<handle>.Int) with $<handle>;
-
-                        take $<handle> // "", $<type> || $<kind>, $n, @attributes.join(", ");
-                    }).cache
+                take "Frame {$_ + 1} - $framedetails - handle: $handle" =>
+                        format-lexicals-for-frame($lexicals);
             };
             print-table(@chunks);
             say "";
             say "call 'release all' to free these @last-command-handles.elems() handles";
         }
         when /:s lexicals (\d+) / {
+            @last-command-handles = Empty;
+
             my $result = await $remote.lexicals($0.Int.self);
-            say $result.&to-json(:pretty);
+            my @table = "Lexicals of handle $0.Int()" => format-lexicals-for-frame($result);
+            print-table @table;
         }
         when /:s attributes (\d+) / {
             my $result = await $remote.attributes($0.Int.self);
