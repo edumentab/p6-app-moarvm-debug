@@ -108,6 +108,14 @@ sub MAIN(Int $port) {
             say "trying to resume all threads" without $0;
             say await $remote.resume($0 ?? $0.Int.self !! Whatever);
         }
+        when /:s s[tep] (into|over|out)? (\d+) / {
+            my $result = do
+                if    !$0.defined or $0 eq "into"
+                                   { $remote.step($1.Int.self, :into) }
+                elsif $0 eq "over" { $remote.step($1.Int.self, :over) }
+                elsif $0 eq "out"  { $remote.step($1.Int.self, :out) };
+            say await $result;
+        }
         when /:s dump (\d+) / {
             my @frames = await $remote.dump($0.Int.self);
             my @table = "Stack trace of thread $0.Int()" => @frames.map({ (++$, .<name> || "<anon>", "$_.<file>:$_.<line>", .<bytecode_file> // "none") }).cache;
