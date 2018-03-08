@@ -154,7 +154,12 @@ sub MAIN(Int $port) {
             print-table @table;
         }
         when / tl / {
-            say (await $remote.threads-list).&to-json(:pretty);
+            my $result = await $remote.threads-list;
+            my @table = "Threads list" => gather {
+                take ["thread", "suspended", "native id", "num locks", "app lifetime?"];
+                take [bold(.<thread>), .<suspended>, .<native_id>.fmt("0x%x"), .<num_locks>, .<app_lifetime>] for $result.list.sort(*.<thread>);
+            }.cache;
+            print-table @table;
         }
         when /:s ctxhandle (\d+) (\d+) / {
             say (await $remote.context-handle($0.Int.self, $1.Int.self)).&to-json(:pretty);
