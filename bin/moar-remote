@@ -3,6 +3,40 @@
 use MoarVM::Remote;
 use JSON::Fast;
 
+my $has-color = (try require Terminal::ANSIColor) !=== Nil;
+my $wants-color = $*OUT.t;
+
+sub strlen(Str() $what) {
+    if $has-color && $wants-color {
+        Terminal::ANSIColor::EXPORT::DEFAULT::colorstrip($what).chars;
+    } else {
+        $what.chars;
+    }
+}
+
+sub colored(Str() $what, $how) {
+    if $has-color && $wants-color {
+        Terminal::ANSIColor::EXPORT::DEFAULT::colored($what, $how);
+    } else {
+        $what
+    }
+}
+
+sub bold($what) {
+    colored($what, "bold");
+}
+
+multi sub boring-metadata($, $) {
+    False
+}
+
+multi sub boring-metadata($_ where *.starts-with("p6opaque"), $v) {
+    if .starts-with("p6opaque_unbox") or .ends-with("s_delegate") {
+        return so $v == -1
+    }
+    False
+}
+
 sub print-table(@chunks) {
     my $num-cols = [max] @chunks>>.value.map([max] *>>.elems).flat;
     if $num-cols == -Inf {
@@ -13,7 +47,7 @@ sub print-table(@chunks) {
     my @col-sizes = 0 xx $num-cols;
     for @chunks {
         for .value {
-            @col-sizes >>[max]=>> $_>>.Str>>.chars;
+            @col-sizes >>[max]=>> $_>>.&strlen;
         }
     }
     for @chunks -> $chunk {
@@ -31,7 +65,7 @@ sub print-table(@chunks) {
 
 sub pad(Str() $str, $size) {
     my $result = " " x $size;
-    $result.substr-rw(0..$str.chars) = $str;
+    $result.substr-rw(0..$str.&strlen) = $str;
     $result;
 }
 
@@ -56,7 +90,7 @@ sub MAIN(Int $port) {
 
             @last-command-handles.push($<handle>.Int) with $<handle>;
 
-            take $<handle> // "", $<type> || $<kind>, $n, @attributes.join(", ");
+            take bold($<handle> // ""), $<type> || $<kind>, $n, @attributes.join(", ");
         }.sort(*.[0]).cache
     }
 
@@ -112,23 +146,23 @@ sub MAIN(Int $port) {
 
                 my $framedetails = "$_<name> ($_<file>:$_<line>)" given @allframes[$_];
 
-                take "Frame {$_ + 1} - $framedetails - handle: $handle" =>
+                take "Frame {$_ + 1} - $framedetails - handle: &bold($handle)" =>
                         format-lexicals-for-frame($lexicals);
             };
             print-table(@chunks);
             say "";
-            say "call 'release all' to free these @last-command-handles.elems() handles";
+            say "call 'release all' to free these &bold(@last-command-handles.elems()) handles";
         }
         when /:s lexicals (\d+) / {
             @last-command-handles = Empty;
 
             my $result = await $remote.lexicals($0.Int.self);
-            my @table = "Lexicals of handle $0.Int()" => format-lexicals-for-frame($result);
+            my @table = "Lexicals of handle &bold($0.Int)" => format-lexicals-for-frame($result);
             print-table @table;
         }
         when /:s metadata (\d+) / {
             my $result = await $remote.object-metadata($0.Int.self);
-            my @table = "Metadata of handle $0.Int()" =>
+            my @table = "Metadata of handle &bold($0.Int)" =>
                 gather {
                     my @features =
                         flat "positional"  xx ?$result<pos_features>,
@@ -138,6 +172,7 @@ sub MAIN(Int $port) {
                     take ["Size", ($result<size> // 0) ~ " + unmanaged: " ~ ($result<unmanaged_size> // 0)];
                     for $result.list.sort(*.key) {
                         next if .key eq any <pos_features ass_features attr_features size unmanaged_size>;
+                        next if boring-metadata(.key, .value);
                         take [.key, .value // "-"];
                     }
                 }.cache;
@@ -151,15 +186,15 @@ sub MAIN(Int $port) {
                     gather for @($_.value) {
                         my @attributes = format-attributes($_);
 
-                        take (.<handle> // "", (.<kind> eq "obj" ?? .<type> !! .<kind>), .<name>, @attributes.join(", "))
+                        take (bold(.<handle> // ""), (.<kind> eq "obj" ?? .<type> !! .<kind>), .<name>, @attributes.join(", "))
                     }.cache;
                 }.cache;
-            say "Attributes for handle $0.Int()";
+            say "Attributes for handle &bold($0.Int)";
             print-table(@table);
         }
         when /:s positionals (\d+) / {
             my $result = await $remote.object-positionals($0.Int.self);
-            my @table = "Positionals in handle $0.Int()" =>
+            my @table = "Positionals in handle &bold($0.Int)" =>
                 gather {
                     my $cnt = $result<start>;
                     if $result<kind> eq "obj" {
@@ -167,7 +202,7 @@ sub MAIN(Int $port) {
                         for $result<contents>.list {
                             my @attributes = format-attributes($_);
                             @last-command-handles.push($_<handle>);
-                            take [$cnt++, $_<handle>, $_<type>, @attributes.join(", ")];
+                            take [$cnt++, bold($_<handle>), $_<type>, @attributes.join(", ")];
                         }
                     } else {
                         for $result<contents>.list {
@@ -179,14 +214,14 @@ sub MAIN(Int $port) {
         }
         when /:s associatives (\d+) / {
             my $result = await $remote.object-associatives($0.Int.self);
-            my @table = "Associatives in handle $0.Int()" =>
+            my @table = "Associatives in handle &bold($0.Int)" =>
                 gather {
                     if $result<kind> eq "obj" {
                         @last-command-handles = Empty;
                         for $result<contents>.list {
                             my @attributes = format-attributes(.value);
                             @last-command-handles.push(.value<handle>);
-                            take [.value<handle>, .key, .value<type>, @attributes.join(", ")];
+                            take [&bold(.value<handle>), .key, .value<type>, @attributes.join(", ")];
                         }
                     } else {
                         take ["NYI"];
@@ -212,66 +247,86 @@ sub MAIN(Int $port) {
             my $result = await $remote.release-handles(@free);
             @last-command-handles = Empty;
         }
-        when /:s debug (on|off)/ {
-            $remote.debug = $0.Str eq "on";
+        when /:s debug [(on|off)]?/ {
+            with $0 {
+                $remote.debug = $0.Str eq "on";
+                say "debug output is now &bold($0.Str)";
+            }
+            else {
+                say "debug output is currently &bold($remote.debug ?? "on" !! "off")";
+            }
+        }
+        when /:s color [(on|off)]?/ {
+            with $0 {
+                $wants-color = $0.Str eq "on";
+                say "colored output is now &bold($0.Str)";
+            }
+            else {
+                say "colored output is currently &bold($wants-color ?? "on" !! "off")";
+                say "(but color is not available; install Terminal::ANSIColor maybe?)" unless $has-color;
+            }
         }
         default {
             say "oh no! don't know what to do with $_\n" if $_;
 
-            say q:to/CMDS/;
+            say qq:to/CMDS/;
                 Supported commands:
 
-                dump [thread number]
+                &bold("dump") [thread number]
                     Print a stacktrace for the given thread.
 
-                suspend [thread number]
-                resume  [thread number]
+                &bold("suspend") [thread number]
+                &bold("resume")  [thread number]
                     Suspend or resume a thread, or all thread if no thread number is passed.
 
-                tl
+                &bold("tl")
                     Output a list of all threads and their status.
 
-                ctxhandle [thread number] [frame number]
-                    Retrieve a handle for a frame (MVMContext) on the thread's stack.
+                &bold("ctxhandle") [thread number] [frame number]
+                    Retrieve a handle for a frame (MVMContext") on the thread's stack.
 
-                caller [handle (MVMContext)]
+                &bold("caller") [handle (MVMContext)]
                     Retrieve a handle for a frame's caller frame (MVMContext)
 
-                outer [handle (MVMContext)]
+                &bold("outer") [handle (MVMContext)]
                     Retrieve a handle for a frame's outer frame (MVMContext)
 
-                coderef [thread number] [frame number]
-                    Retrieve a handle for the code object (MVMCode) for a frame on a thread's stack.
+                &bold("coderef") [thread number] [frame number]
+                    Retrieve a handle for the code object (MVMCode") for a frame on a thread's stack.
 
-                lexicals [handle (MVMContext)]
+                &bold("lexicals") [handle (MVMContext)]
                     Retrieve a list of lexicals and handlers for any object lexicals for a given frame.
 
-                metadata [handle (MVMObject)]
+                &bold("metadata") [handle (MVMObject)]
                     Retrieve a bunch of metadata about an object.
 
-                attributes [handle (MVMObject)]
+                &bold("attributes") [handle (MVMObject)]
                     Retrieve a list of all attributes an object has, along with handles for any object values.
 
-                positionals [handle (MVMObject)]
+                &bold("positionals") [handle (MVMObject)]
                     Retrieve the contents of an object that has positional properties, like an array.
 
-                release [handle handle ...]
+                &bold("release") [handle handle ...]
                     Releases handles, so the corresponding objects can be garbage collected.
 
-                release all [keep [handle handle ...]]
+                &bold("release") all [keep [handle handle ...]]
                     Release all handles allocated by the previous command, optionally keeping
                     the specified handles for further use.
 
-                [breakpoint|bp] "[file path]" [line number] [suspend on hit]? [send stacktrace on hit]? /
+                &bold("[breakpoint|bp]") "[file path]" [line number] [suspend on hit]? [send stacktrace on hit]? /
                     Sets a breakpoint for a given filename and line number.
                     If suspend is 1, execution of the thread that hit it will stop.
                     If the stacktrace is requested, every hit will send a stack trace along with it.
 
-                clearbp "[file path]" [line number]
+                &bold("clearbp") "[file path]" [line number]
                     Clear any breakpoints for a given filename and line number.
 
-                debug [on|off]
-                    Output debugging information.
+                &bold("debug") [on|off]
+                    Turns debugging information on or off, or display whether it's on or off.
+
+                &bold("color") [on|off]
+                    Turn ANSI Colors on or of or display whether it's on or off.
+
                 CMDS
         }
         CATCH {
