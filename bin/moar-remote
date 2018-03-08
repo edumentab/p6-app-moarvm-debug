@@ -73,7 +73,21 @@ sub MAIN(Int $port) {
     my $remote = await MoarVM::Remote.connect($port);
     say "success!";
 
-    $remote.events.tap({ say "Got event: "; .say });
+    my %interesting-events;
+    my Lock $events-lock .= new;
+
+    $remote.events.tap({
+        $events-lock.protect: {
+        if %interesting-events{.<id>}:exists {
+            if %interesting-events{.<id>}($_) eq "delete" {
+                %interesting-events{.<id>}:delete
+            }
+        } else {
+            say "Got event: "; .say
+        }
+        Nil;
+    }
+    });
 
     my @last-command-handles;
 
@@ -94,7 +108,18 @@ sub MAIN(Int $port) {
         }.sort(*.[0]).cache
     }
 
-    while prompt("> ") -> $_ {
+    sub format-backtrace(@backtrace) {
+        @backtrace.map({ (++$, .<name> || "<anon>", "$_.<file>:$_.<line>", .<bytecode_file> // "none") }).cache
+    }
+
+    my $last-command;
+    while (my $input = prompt("> ")) !=== Any {
+        $_ = $input;
+        if m/^$/ {
+            $_ = $last-command;
+        } else {
+            $last-command = $_;
+        }
         when /:s execution / {
             say (await $remote.is-execution-suspended()) ?? "Execution suspended" !! "Execution not suspended";
         }
@@ -109,16 +134,23 @@ sub MAIN(Int $port) {
             say await $remote.resume($0 ?? $0.Int.self !! Whatever);
         }
         when /:s s[tep] (into|over|out)? (\d+) / {
-            my $result = do
-                if    !$0.defined or $0 eq "into"
-                                   { $remote.step($1.Int.self, :into) }
-                elsif $0 eq "over" { $remote.step($1.Int.self, :over) }
-                elsif $0 eq "out"  { $remote.step($1.Int.self, :out) };
-            say await $result;
+            $events-lock.protect: {
+                my $result = await do
+                    if    !$0.defined or $0 eq "into"
+                                       { $remote.step($1.Int.self, :into) }
+                    elsif $0 eq "over" { $remote.step($1.Int.self, :over) }
+                    elsif $0 eq "out"  { $remote.step($1.Int.self, :out) };
+                %interesting-events{$result} = -> $event {
+                    my @frames := $event<frames>;
+                    my @table = "Stack trace of thread &bold($event<thread>)" => format-backtrace(@frames);
+                    print-table @table;
+                    "delete";
+                }
+            }
         }
         when /:s dump (\d+) / {
-            my @frames = await $remote.dump($0.Int.self);
-            my @table = "Stack trace of thread $0.Int()" => @frames.map({ (++$, .<name> || "<anon>", "$_.<file>:$_.<line>", .<bytecode_file> // "none") }).cache;
+            my @frames := await $remote.dump($0.Int.self);
+            my @table = "Stack trace of thread &bold($0.Int)" => format-backtrace(@frames);
             print-table @table;
         }
         when / tl / {
