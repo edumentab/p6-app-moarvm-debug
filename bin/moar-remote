@@ -150,7 +150,7 @@ sub MAIN(Int $port) {
     }
 
     sub format-backtrace(@backtrace) {
-        @backtrace.map({ ($++, .<name> || "<anon>", "$_.<file>:$_.<line>", .<bytecode_file> // "none") }).cache
+        @backtrace.map({ ($++, .<type>, .<name> || "<anon>", "$_.<file>:$_.<line>", .<bytecode_file> // "none") }).cache
     }
 
     my $last-command;
