@@ -410,6 +410,10 @@ sub MAIN(Int $port) {
                     Retrieve a list of lexicals and handlers for any object lexicals for a given frame.
                     Synonyms: &bold("lex")
 
+                &bold("all lexicals") [thread number]
+                    Retrieve a list of lexicals &bold("all") frames of a given thread.
+                    Synonyms: &bold("lex")
+
                 &bold("metadata") [handle (MVMObject)]
                     Retrieve a bunch of metadata about an object.
                     Synonyms: &bold("meta")
