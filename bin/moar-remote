@@ -187,22 +187,6 @@ sub MAIN(Int $port) {
             say "trying to resume all threads" without $0;
             say await $remote.resume($0 ?? $0.Int.self !! Whatever);
         }
-        when /:s s[tep]? (into|over|out)? [(\d+)||<?{ defined $assumed-thread }>||<!>] / {
-            my $thread = $1 ?? $1.Int.self !! $assumed-thread;
-            $events-lock.protect: {
-                my $result = await do
-                    if    !$0.defined or $0 eq "into"
-                                       { $remote.step($thread, :into) }
-                    elsif $0 eq "over" { $remote.step($thread, :over) }
-                    elsif $0 eq "out"  { $remote.step($thread, :out) };
-                %interesting-events{$result} = -> $event {
-                    my @frames := $event<frames>;
-                    my @table = "Stack trace of thread &bold($event<thread>)" => format-backtrace(@frames);
-                    print-table @table;
-                    "delete";
-                }
-            }
-        }
         when /:s [dump|bt|backtrace] [(\d+)||<?{ defined $assumed-thread }>||<!>] / {
             my $thread = $0 ?? $0.Int.self !! $assumed-thread;
             my @frames := await $remote.dump($thread);
@@ -358,6 +342,22 @@ sub MAIN(Int $port) {
         when /:s assume thread (\d+) / {
             say "Going to assume thread $0.Int() for further commands";
             $assumed-thread = $0.Int();
+        }
+        when /:s s[tep]? (into|over|out)? [(\d+)||<?{ defined $assumed-thread }>||<!>] / {
+            my $thread = $1 ?? $1.Int.self !! $assumed-thread;
+            $events-lock.protect: {
+                my $result = await do
+                    if    !$0.defined or $0 eq "into"
+                                       { $remote.step($thread, :into) }
+                    elsif $0 eq "over" { $remote.step($thread, :over) }
+                    elsif $0 eq "out"  { $remote.step($thread, :out) };
+                %interesting-events{$result} = -> $event {
+                    my @frames := $event<frames>;
+                    my @table = "Stack trace of thread &bold($event<thread>)" => format-backtrace(@frames);
+                    print-table @table;
+                    "delete";
+                }
+            }
         }
         when /:s assume no thread / {
             say "Not going to assume any thread for further commands";
