@@ -138,7 +138,7 @@ sub MAIN(Int $port) {
         gather for $lexicals.kv -> $n, $/ {
             my @attributes = format-attributes($/);
 
-            @last-command-handles.push($<handle>.Int) with $<handle>;
+            @last-command-handles.push($<handle>.Int) if $<handle>;
 
             take bold($<handle> // ""), $<type> || $<kind>, $n, @attributes.join(", ");
         }.sort(*.[0]).cache
@@ -223,7 +223,7 @@ sub MAIN(Int $port) {
                 my $handle = await $remote.context-handle($0.Int.self, $_);
                 my $lexicals = (await $remote.lexicals($handle));
 
-                @last-command-handles.push($handle);
+                @last-command-handles.push($handle) if $handle;
 
                 my $framedetails = "$_<name> ($_<file>:$_<line>)" given @allframes[$_];
 
@@ -282,7 +282,7 @@ sub MAIN(Int $port) {
                         @last-command-handles = Empty;
                         for $result<contents>.list {
                             my @attributes = format-attributes($_);
-                            @last-command-handles.push($_<handle>);
+                            @last-command-handles.push($_<handle>) if $_<handle>;
                             take [$cnt++, bold($_<handle>), $_<type>, @attributes.join(", ")];
                         }
                     } else {
@@ -301,7 +301,7 @@ sub MAIN(Int $port) {
                         @last-command-handles = Empty;
                         for $result<contents>.list {
                             my @attributes = format-attributes(.value);
-                            @last-command-handles.push(.value<handle>);
+                            @last-command-handles.push(.value<handle>) if .value<handle>;
                             take [&bold(.value<handle>), .key, .value<type>, @attributes.join(", ")];
                         }
                     } else {
