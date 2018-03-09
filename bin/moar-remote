@@ -106,8 +106,13 @@ sub pad(Str() $str, $size) {
 }
 
 sub MAIN(Int $port) {
+    note "Welcome to the MoarVM Remote Debugger";
+    note "";
+    note "For best results, please run this program inside rlwrap";
+    note "";
+    note "Connecting to MoarVM remote on localhost port $port";
     my $remote = await MoarVM::Remote.connect($port);
-    say "success!";
+    note "success!";
 
     my %interesting-events;
     my Lock $events-lock .= new;
