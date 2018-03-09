@@ -141,7 +141,7 @@ sub MAIN(Int $port) {
             @last-command-handles.push($<handle>.Int) if $<handle>;
 
             take bold($<handle> // ""), $<type> || $<kind>, $n, @attributes.join(", ");
-        }.sort(*.[0]).cache
+        }.sort({+colorstrip(.[0])}).cache
     }
 
     sub format-backtrace(@backtrace) {
