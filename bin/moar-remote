@@ -149,6 +149,9 @@ sub MAIN(Int $port) {
     }
 
     my $last-command;
+
+    my $assumed-thread;
+
     while (my $input = prompt("> ")) !=== Any {
         $_ = $input;
         if m/^$/ {
@@ -169,13 +172,14 @@ sub MAIN(Int $port) {
             say "trying to resume all threads" without $0;
             say await $remote.resume($0 ?? $0.Int.self !! Whatever);
         }
-        when /:s s[tep] (into|over|out)? (\d+) / {
+        when /:s s[tep]? (into|over|out)? [(\d+)||<?{ defined $assumed-thread }>||<!>] / {
+            my $thread = $1 ?? $1.Int.self !! $assumed-thread;
             $events-lock.protect: {
                 my $result = await do
                     if    !$0.defined or $0 eq "into"
-                                       { $remote.step($1.Int.self, :into) }
-                    elsif $0 eq "over" { $remote.step($1.Int.self, :over) }
-                    elsif $0 eq "out"  { $remote.step($1.Int.self, :out) };
+                                       { $remote.step($thread, :into) }
+                    elsif $0 eq "over" { $remote.step($thread, :over) }
+                    elsif $0 eq "out"  { $remote.step($thread, :out) };
                 %interesting-events{$result} = -> $event {
                     my @frames := $event<frames>;
                     my @table = "Stack trace of thread &bold($event<thread>)" => format-backtrace(@frames);
@@ -184,8 +188,9 @@ sub MAIN(Int $port) {
                 }
             }
         }
-        when /:s dump (\d+) / {
-            my @frames := await $remote.dump($0.Int.self);
+        when /:s [dump|bt|backtrace] [(\d+)||<?{ defined $assumed-thread }>||<!>] / {
+            my $thread = $0 ?? $0.Int.self !! $assumed-thread;
+            my @frames := await $remote.dump($thread);
             my @table = "Stack trace of thread &bold($0.Int)" => format-backtrace(@frames);
             print-table @table;
         }
@@ -197,8 +202,9 @@ sub MAIN(Int $port) {
             }.cache;
             print-table @table;
         }
-        when /:s ctxhandle (\d+) (\d+) / {
-            say (await $remote.context-handle($0.Int.self, $1.Int.self)).&to-json(:pretty);
+        when /:s [ctxhandle|[call|stack]frame] [(\d+)||<?{ defined $assumed-thread }>||<!>] (\d+) / {
+            my $thread = $0 ?? $0.Int.self !! $assumed-thread;
+            say (await $remote.context-handle($thread, $1.Int.self)).&to-json(:pretty);
         }
         when /:s caller (\d+) / {
             my $result = await $remote.caller-context-handle($0.Int.self);
@@ -208,19 +214,21 @@ sub MAIN(Int $port) {
             my $result = $remote.outer-context-handle($0.Int.self);
             say $result.&to-json(:pretty);
         }
-        when /:s coderef (\d+) (\d+) / {
-            my $result = await $remote.coderef-handle($0.Int.self, $1.Int.self);
+        when /:s coderef [(\d+)||<?{ defined $assumed-thread }>||<!>] (\d+) / {
+            my $thread = $0 ?? $0.Int.self !! $assumed-thread;
+            my $result = await $remote.coderef-handle($thread, $1.Int.self);
             say $result.&to-json(:pretty);
         }
-        when /:s all lex[icals]? (\d+) / {
+        when /:s all lex[icals]? [(\d+)||<?{ defined $assumed-thread }>||<!>]/ {
+            my $thread = $0 ?? $0.Int.self !! $assumed-thread;
             # convenience: grab all lexicals on the stack
-            my @allframes = (await $remote.dump($0.Int.self));
+            my @allframes = (await $remote.dump($thread));
             my $framecount = +@allframes;
 
             @last-command-handles = Empty;
 
             my @chunks = gather for (^$framecount).reverse {
-                my $handle = await $remote.context-handle($0.Int.self, $_);
+                my $handle = await $remote.context-handle($thread, $_);
                 my $lexicals = (await $remote.lexicals($handle));
 
                 @last-command-handles.push($handle) if $handle;
@@ -328,6 +336,14 @@ sub MAIN(Int $port) {
             my $result = await $remote.release-handles(@free);
             @last-command-handles = Empty;
         }
+        when /:s assume thread (\d+) / {
+            say "Going to assume thread $0.Int() for further commands";
+            $assumed-thread = $0.Int();
+        }
+        when /:s assume no thread / {
+            say "Not going to assume any thread for further commands";
+            $assumed-thread = Any;
+        }
         when /:s abbrev (.*) / {
             say my $header = "Contents of entry $0.Str():";
             say "=" x $header.chars;
@@ -409,6 +425,12 @@ sub MAIN(Int $port) {
 
                 &bold("clearbp") "[file path]" [line number]
                     Clear any breakpoints for a given filename and line number.
+
+                &bold("assume thread") [thread number]
+                    If you don't pass a thread number in future commands, this one will be used.
+
+                &bold("assume no thread")
+                    Resets the thread selection.
 
                 &bold("abbrev") [abbrev-key]
                     Display the full output for any abbreviated field.
