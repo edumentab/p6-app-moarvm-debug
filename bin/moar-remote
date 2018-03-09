@@ -55,8 +55,18 @@ sub print-table(@chunks is copy) {
         state $wordlist;
         if strlen($text) > $abbrev-length {
             my $key;
-            $wordlist //= do { "/usr/share/dict/words".IO.lines().cache };
-            my @wordcount = flat 1 xx 20, 2 xx 40, 3 xx 100, 4 xx 1000;
+            $wordlist //= do {
+                (try "/usr/share/dict/words".IO.lines().cache)
+                || (
+                    gather loop {
+                        given flat((<b c d f g h j k l m n p q r s t v w x z>.pick((1,1,1,2).pick).Slip,
+                        <a e i o u y>.pick((1,2).pick).Slip) xx (1,1,1,2,2).pick).join("") {
+                            take $_ if $_.chars > 3;
+                        }
+                    }
+                ).unique[^100].cache
+            };
+            my @wordcount = flat 1 xx 20, 2 xx 40, 3 xx 100, 4 xx 500, 5 xx 10, 6 xx 10, 7..*;
             with %reverse-abbreviated{$text} {
                 $key = $_
             } else {
