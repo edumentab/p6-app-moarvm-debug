@@ -196,7 +196,7 @@ sub MAIN(Int $port) {
         when /:s [dump|bt|backtrace] [(\d+)||<?{ defined $assumed-thread }>||<!>] / {
             my $thread = $0 ?? $0.Int.self !! $assumed-thread;
             my @frames := await $remote.dump($thread);
-            my @table = "Stack trace of thread &bold($0.Int)" => format-backtrace(@frames);
+            my @table = "Stack trace of thread &bold($thread)" => format-backtrace(@frames);
             print-table @table;
         }
         when / [tl|threads] / {
