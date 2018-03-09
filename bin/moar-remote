@@ -411,6 +411,10 @@ sub MAIN(Int $port) {
                 &bold("positionals") [handle (MVMObject)]
                     Retrieve the contents of an object that has positional properties, like an array.
 
+                &bold("associatives") [handle (MVMObject)]
+                    Retrieve the contents of an object that has associative properties, like a hash.
+                    Synonyms: &bold("assoc")
+
                 &bold("release") [handle handle ...]
                     Releases handles, so the corresponding objects can be garbage collected.
 
