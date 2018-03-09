@@ -262,7 +262,11 @@ sub MAIN(Int $port) {
                     for $result.list.sort(*.key) {
                         next if .key eq any <pos_features ass_features attr_features size unmanaged_size>;
                         next if boring-metadata(.key, .value);
-                        take [.key, .value // "-"];
+                        if .value ~~ Positional {
+                            take [.key, .value.join(", ")];
+                        } else {
+                            take [.key, .value // "-"];
+                        }
                     }
                 }.cache;
             print-table @table;
