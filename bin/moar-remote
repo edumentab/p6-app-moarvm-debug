@@ -6,8 +6,16 @@ use JSON::Fast;
 my $has-color = (try require Terminal::ANSIColor) !=== Nil;
 my $wants-color = $*OUT.t;
 
+sub colorstrip(Str() $text) {
+    if $has-color {
+        Terminal::ANSIColor::EXPORT::DEFAULT::colorstrip($text)
+    } else {
+        $text
+    }
+}
+
 sub strlen(Str() $what) {
-    if $has-color && $wants-color {
+    if $has-color {
         Terminal::ANSIColor::EXPORT::DEFAULT::colorstrip($what).chars;
     } else {
         $what.chars;
@@ -37,7 +45,34 @@ multi sub boring-metadata($_ where *.starts-with("p6opaque"), $v) {
     False
 }
 
-sub print-table(@chunks) {
+my %abbreviated;
+my %reverse-abbreviated;
+
+my $abbrev-length = 70;
+
+sub print-table(@chunks is copy) {
+    sub abbreviate(Str() $text is copy) {
+        state $wordlist;
+        if strlen($text) > $abbrev-length {
+            my $key;
+            $wordlist //= do { "/usr/share/dict/words".IO.lines().cache };
+            my @wordcount = flat 1 xx 20, 2 xx 40, 3 xx 100, 4 xx 1000;
+            with %reverse-abbreviated{$text} {
+                $key = $_
+            } else {
+                repeat {
+                    $key = $wordlist.pick(@wordcount.shift)>>.lc.join("-");
+                } while %abbreviated{$key}:exists;
+                %abbreviated{$key} = $text;
+            }
+            $text .= &colorstrip;
+            my $ot = $text;
+            $text = $text.lines()[0];
+            my $abbrevkey = "... $ot.chars() chars, $ot.lines().elems() lines, key: $key";
+            $text.substr-rw($text.chars min ($abbrev-length - $abbrevkey.chars max 0), *) = $abbrevkey;
+        }
+        $text;
+    }
     my $num-cols = [max] @chunks>>.value.map([max] *>>.elems).flat;
     if $num-cols == -Inf {
         say @chunks.perl;
@@ -50,13 +85,14 @@ sub print-table(@chunks) {
             @col-sizes >>[max]=>> $_>>.&strlen;
         }
     }
+    @col-sizes >>min=>> 60;
     for @chunks -> $chunk {
         say "";
         say $chunk.key;
         for @($chunk.value) -> $line {
             print "    ";
             for @$line Z @col-sizes -> ($text, $fieldwidth) {
-                print $text.&pad($fieldwidth + 2)
+                print $text.&abbreviate.&pad($fieldwidth + 2)
             }
             print "\n";
         }
@@ -292,6 +328,14 @@ sub MAIN(Int $port) {
             my $result = await $remote.release-handles(@free);
             @last-command-handles = Empty;
         }
+        when /:s abbrev (.*) / {
+            say my $header = "Contents of entry $0.Str():";
+            say "=" x $header.chars;
+            say %abbreviated{$0.Str};
+            my $footer = "End of Contents of entry $0.Str()";
+            say "=" x $footer.chars;
+            say $footer;
+        }
         when /:s debug [(on|off)]?/ {
             with $0 {
                 $remote.debug = $0.Str eq "on";
@@ -365,6 +409,9 @@ sub MAIN(Int $port) {
 
                 &bold("clearbp") "[file path]" [line number]
                     Clear any breakpoints for a given filename and line number.
+
+                &bold("abbrev") [abbrev-key]
+                    Display the full output for any abbreviated field.
 
                 &bold("debug") [on|off]
                     Turns debugging information on or off, or display whether it's on or off.
