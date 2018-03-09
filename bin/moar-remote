@@ -194,7 +194,7 @@ sub MAIN(Int $port) {
             my @table = "Stack trace of thread &bold($0.Int)" => format-backtrace(@frames);
             print-table @table;
         }
-        when / tl / {
+        when / [tl|threads] / {
             my $result = await $remote.threads-list;
             my @table = "Threads list" => gather {
                 take ["thread", "suspended", "native id", "num locks", "app lifetime?"];
@@ -242,14 +242,14 @@ sub MAIN(Int $port) {
             say "";
             say "call 'release all' to free these &bold(@last-command-handles.elems()) handles";
         }
-        when /:s lexicals (\d+) / {
+        when /:s lex[icals]? (\d+) / {
             @last-command-handles = Empty;
 
             my $result = await $remote.lexicals($0.Int.self);
             my @table = "Lexicals of handle &bold($0.Int)" => format-lexicals-for-frame($result);
             print-table @table;
         }
-        when /:s metadata (\d+) / {
+        when /:s meta[data]? (\d+) / {
             my $result = await $remote.object-metadata($0.Int.self);
             my @table = "Metadata of handle &bold($0.Int)" =>
                 gather {
@@ -267,7 +267,7 @@ sub MAIN(Int $port) {
                 }.cache;
             print-table @table;
         }
-        when /:s attributes (\d+) / {
+        when /:s attr[ibute]?s (\d+) / {
             my $result = await $remote.attributes($0.Int.self);
             my %by-class = $result.categorize(*.<class>);
             my @table = gather for %by-class {
@@ -281,7 +281,7 @@ sub MAIN(Int $port) {
             say "Attributes for handle &bold($0.Int)";
             print-table(@table);
         }
-        when /:s positionals (\d+) / {
+        when /:s pos[itionals]? (\d+) / {
             my $result = await $remote.object-positionals($0.Int.self);
             my @table = "Positionals in handle &bold($0.Int)" =>
                 gather {
@@ -301,7 +301,7 @@ sub MAIN(Int $port) {
                 }.cache;
             print-table(@table);
         }
-        when /:s associatives (\d+) / {
+        when /:s assoc[iatives]? (\d+) / {
             my $result = await $remote.object-associatives($0.Int.self);
             my @table = "Associatives in handle &bold($0.Int)" =>
                 gather {
@@ -379,6 +379,7 @@ sub MAIN(Int $port) {
 
                 &bold("dump") [thread number]
                     Print a stacktrace for the given thread.
+                    Synonyms: &bold("bt")
 
                 &bold("suspend") [thread number]
                 &bold("resume")  [thread number]
@@ -386,9 +387,11 @@ sub MAIN(Int $port) {
 
                 &bold("tl")
                     Output a list of all threads and their status.
+                    Synonyms: &bold("threads")
 
                 &bold("ctxhandle") [thread number] [frame number]
                     Retrieve a handle for a frame (MVMContext") on the thread's stack.
+                    Synonyms: &bold("frame")
 
                 &bold("caller") [handle (MVMContext)]
                     Retrieve a handle for a frame's caller frame (MVMContext)
@@ -401,15 +404,19 @@ sub MAIN(Int $port) {
 
                 &bold("lexicals") [handle (MVMContext)]
                     Retrieve a list of lexicals and handlers for any object lexicals for a given frame.
+                    Synonyms: &bold("lex")
 
                 &bold("metadata") [handle (MVMObject)]
                     Retrieve a bunch of metadata about an object.
+                    Synonyms: &bold("meta")
 
                 &bold("attributes") [handle (MVMObject)]
                     Retrieve a list of all attributes an object has, along with handles for any object values.
+                    Synonyms: &bold("attrs")
 
                 &bold("positionals") [handle (MVMObject)]
                     Retrieve the contents of an object that has positional properties, like an array.
+                    Synonyms: &bold("pos")
 
                 &bold("associatives") [handle (MVMObject)]
                     Retrieve the contents of an object that has associative properties, like a hash.
@@ -422,10 +429,10 @@ sub MAIN(Int $port) {
                     Release all handles allocated by the previous command, optionally keeping
                     the specified handles for further use.
 
-                &bold("[breakpoint|bp]") "[file path]" [line number] [suspend on hit]? [send stacktrace on hit]? /
+                &bold("[breakpoint|bp]") "[file path]" [line number] [suspend]? [stacktrace]?
                     Sets a breakpoint for a given filename and line number.
                     If suspend is 1, execution of the thread that hit it will stop.
-                    If the stacktrace is requested, every hit will send a stack trace along with it.
+                    If stacktrace is 1, every hit will send a stack trace along with it.
 
                 &bold("clearbp") "[file path]" [line number]
                     Clear any breakpoints for a given filename and line number.
