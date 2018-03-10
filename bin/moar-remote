@@ -424,6 +424,19 @@ sub MAIN(Int $port) {
                 &bold("resume")  [thread number]
                     Suspend or resume a thread, or all thread if no thread number is passed.
 
+                &bold("step") into [thread number]
+                    Continue running code on the given thread until a different source
+                    line is reached.
+
+                &bold("step over") [thread number]
+                    Continue running code on the given thread until a different source
+                    line in the same frame, or the current frame is left.
+
+                &bold("step out") [handle (MVMContext)] [thread number]
+                    Continue running code on the given thread until the given
+                    frame is reached. To use this for stepping out, get a
+                    ctxhandle for the frame you consider "out".
+
                 &bold("tl")
                     Output a list of all threads and their status.
                     Synonyms: &bold("threads")
