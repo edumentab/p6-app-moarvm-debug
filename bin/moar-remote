@@ -329,9 +329,25 @@ sub MAIN(Int $port) {
             my $result = await $remote.clear-breakpoints($0.Str, $1.Int);
             say $result.&to-json(:pretty);
         }
-        when /:s [breakpoint|bp] \"(.*?)\" (\d+) (\d?) (\d?) / {
+        when /:s [breakpoint|bp][":"|<.ws>]\"(.*?)\" (\d+) (\d?) (\d?) / {
             my $result = await $remote.breakpoint($0.Str, $1.Int, suspend => so ($2 && $2.Int), stacktrace => so ($3 && $3.Int));
-            say $result.&to-json(:pretty);
+            with $result<notifications> {
+                say "Receiving breakpoint notifications for $0.Str():$result<line>";
+                my $file = $0.Str;
+                my $line = $result<line>;
+                start {
+                    react whenever $_.Supply {
+                        if .<frames>:exists {
+                            print-table my @chunks =
+                                "Breakpoint on $file:$line hit by thread &bold($_<thread>)!"
+                                    => format-backtrace(.<frames>);
+                        }
+                    }
+                    CATCH {
+                        .say;
+                    }
+                };
+            }
         }
         when /:s release[handles]? (\d+)+ % \s+/ {
             my $result = await $remote.release-handles($0>>.Int);
