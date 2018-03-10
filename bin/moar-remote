@@ -49,11 +49,14 @@ multi sub boring-metadata($_ where *.starts-with("p6opaque"), $v) {
 sub output-breakpoint-notifications(Str $file, Int $line, Supply $notifications) {
     say "Receiving breakpoint notifications for $file:$line";
     start {
-        react whenever $_.Supply {
+        react whenever $notifications.Supply {
+            .perl.say;
             if .<frames>:exists {
+                my @this-backtrace = format-backtrace(.<frames>);
+
                 print-table my @chunks =
-                "Breakpoint on $file:$line hit by thread &bold($_<thread>)!"
-                => format-backtrace(.<frames>);
+                    "Breakpoint on $file:$line hit by thread &bold($_<thread>)!"
+                        => @this-backtrace;;
             } else {
                 say "Breakpoint on $file:$line hit by thread &bold($_<thread>)!";
             }
@@ -64,6 +67,30 @@ sub output-breakpoint-notifications(Str $file, Int $line, Supply $notifications)
         }
     };
 }
+
+sub format-attributes($lex-or-attr) {
+    flat "concrete" xx ?$_<concrete>,
+         "container" xx ?$_<container>,
+         "value: {$_<value>//""}" xx ($_<value>:exists)
+            given $lex-or-attr;
+}
+
+my @last-command-handles;
+
+sub format-lexicals-for-frame($lexicals) {
+    gather for $lexicals.kv -> $n, $/ {
+        my @attributes = format-attributes($/);
+
+        @last-command-handles.push($<handle>.Int) if $<handle>;
+
+        take bold($<handle> // ""), $<type> || $<kind>, $n, @attributes.join(", ");
+    }.sort({+colorstrip(.[0])}).cache
+}
+
+sub format-backtrace(@backtrace) {
+    @backtrace.map({ ($++, .<type>, .<name> || "<anon>", "$_.<file>:$_.<line>", .<bytecode_file> // "none") }).cache
+}
+
 
 my %abbreviated;
 my %reverse-abbreviated;
@@ -163,29 +190,6 @@ sub MAIN(Int $port) {
         Nil;
     }
     });
-
-    my @last-command-handles;
-
-    sub format-attributes($lex-or-attr) {
-        flat "concrete" xx ?$_<concrete>,
-             "container" xx ?$_<container>,
-             "value: {$_<value>//""}" xx ($_<value>:exists)
-                 given $lex-or-attr;
-    }
-
-    sub format-lexicals-for-frame($lexicals) {
-        gather for $lexicals.kv -> $n, $/ {
-            my @attributes = format-attributes($/);
-
-            @last-command-handles.push($<handle>.Int) if $<handle>;
-
-            take bold($<handle> // ""), $<type> || $<kind>, $n, @attributes.join(", ");
-        }.sort({+colorstrip(.[0])}).cache
-    }
-
-    sub format-backtrace(@backtrace) {
-        @backtrace.map({ ($++, .<type>, .<name> || "<anon>", "$_.<file>:$_.<line>", .<bytecode_file> // "none") }).cache
-    }
 
     my $last-command;
 
