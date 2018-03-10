@@ -442,7 +442,7 @@ sub MAIN(Int $port) {
                     Synonyms: &bold("threads")
 
                 &bold("ctxhandle") [thread number] [frame number]
-                    Retrieve a handle for a frame (MVMContext") on the thread's stack.
+                    Retrieve a handle for a frame (MVMContext) on the thread's stack.
                     Synonyms: &bold("frame")
 
                 &bold("caller") [handle (MVMContext)]
@@ -452,7 +452,7 @@ sub MAIN(Int $port) {
                     Retrieve a handle for a frame's outer frame (MVMContext)
 
                 &bold("coderef") [thread number] [frame number]
-                    Retrieve a handle for the code object (MVMCode") for a frame on a thread's stack.
+                    Retrieve a handle for the code object (MVMCode) for a frame on a thread's stack.
 
                 &bold("lexicals") [handle (MVMContext)]
                     Retrieve a list of lexicals and handlers for any object lexicals for a given frame.
