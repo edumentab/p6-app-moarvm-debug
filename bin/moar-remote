@@ -96,17 +96,21 @@ sub print-table(@chunks is copy) {
         }
     }
     @col-sizes >>min=>> 60;
+
+    my @result;
+
     for @chunks -> $chunk {
-        say "";
-        say $chunk.key;
+        @result.push: "\n";
+        @result.push: $chunk.key ~ "\n";
         for @($chunk.value) -> $line {
-            print "    ";
+            @result.push: "    ";
             for @$line Z @col-sizes -> ($text, $fieldwidth) {
-                print $text.&abbreviate.&pad($fieldwidth + 2)
+                @result.push: $text.&abbreviate.&pad($fieldwidth + 2)
             }
-            print "\n";
+            @result.push: "\n";
         }
     }
+    say @result.join("");
 }
 
 sub pad(Str() $str, $size) {
