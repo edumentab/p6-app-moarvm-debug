@@ -1,38 +1,10 @@
 #!/usr/bin/env perl6
 
 use MoarVM::Remote;
+use App::MoarVM::Debug::Formatter;
+use App::MoarVM::Debug::Breakpoints;
 use JSON::Fast;
 
-my $has-color = (try require Terminal::ANSIColor) !=== Nil;
-my $wants-color = $*OUT.t;
-
-sub colorstrip(Str() $text) {
-    if $has-color {
-        Terminal::ANSIColor::EXPORT::DEFAULT::colorstrip($text)
-    } else {
-        $text
-    }
-}
-
-sub strlen(Str() $what) {
-    if $has-color {
-        Terminal::ANSIColor::EXPORT::DEFAULT::colorstrip($what).chars;
-    } else {
-        $what.chars;
-    }
-}
-
-sub colored(Str() $what, $how) {
-    if $has-color && $wants-color {
-        Terminal::ANSIColor::EXPORT::DEFAULT::colored($what, $how);
-    } else {
-        $what
-    }
-}
-
-sub bold($what) {
-    colored($what, "bold");
-}
 
 multi sub boring-metadata($, $) {
     False
@@ -43,127 +15,6 @@ multi sub boring-metadata($_ where *.starts-with("p6opaque"), $v) {
         return so $v == -1
     }
     False
-}
-
-
-sub output-breakpoint-notifications(Str $file, Int $line, Supply $notifications) {
-    say "Receiving breakpoint notifications for $file:$line";
-    start {
-        react whenever $notifications.Supply {
-            .perl.say;
-            if .<frames>:exists {
-                my @this-backtrace = format-backtrace(.<frames>);
-
-                print-table my @chunks =
-                    "Breakpoint on $file:$line hit by thread &bold($_<thread>)!"
-                        => @this-backtrace;;
-            } else {
-                say "Breakpoint on $file:$line hit by thread &bold($_<thread>)!";
-            }
-        }
-        CATCH {
-            say "Breakpoint handler aborted";
-            .say;
-        }
-    };
-}
-
-sub format-attributes($lex-or-attr) {
-    flat "concrete" xx ?$_<concrete>,
-         "container" xx ?$_<container>,
-         "value: {$_<value>//""}" xx ($_<value>:exists)
-            given $lex-or-attr;
-}
-
-my @last-command-handles;
-
-sub format-lexicals-for-frame($lexicals) {
-    gather for $lexicals.kv -> $n, $/ {
-        my @attributes = format-attributes($/);
-
-        @last-command-handles.push($<handle>.Int) if $<handle>;
-
-        take bold($<handle> // ""), $<type> || $<kind>, $n, @attributes.join(", ");
-    }.sort({+colorstrip(.[0])}).cache
-}
-
-sub format-backtrace(@backtrace) {
-    @backtrace.map({ ($++, .<type>, .<name> || "<anon>", "$_.<file>:$_.<line>", .<bytecode_file> // "none") }).cache
-}
-
-
-my %abbreviated;
-my %reverse-abbreviated;
-
-my $abbrev-length = 70;
-
-sub print-table(@chunks is copy) {
-    sub abbreviate(Str() $text is copy) {
-        state $wordlist;
-        if strlen($text) > $abbrev-length {
-            my $key;
-            $wordlist //= do {
-                (try "/usr/share/dict/words".IO.lines().cache)
-                || (
-                    gather loop {
-                        given flat((<b c d f g h j k l m n p q r s t v w x z>.pick((1,1,1,2).pick).Slip,
-                        <a e i o u y>.pick((1,2).pick).Slip) xx (1,1,1,2,2).pick).join("") {
-                            take $_ if $_.chars > 3;
-                        }
-                    }
-                ).unique[^100].cache
-            };
-            my @wordcount = flat 1 xx 20, 2 xx 40, 3 xx 100, 4 xx 500, 5 xx 10, 6 xx 10, 7..*;
-            with %reverse-abbreviated{$text} {
-                $key = $_
-            } else {
-                repeat {
-                    $key = $wordlist.pick(@wordcount.shift)>>.lc.join("-");
-                } while %abbreviated{$key}:exists;
-                %abbreviated{$key} = $text;
-            }
-            $text .= &colorstrip;
-            my $ot = $text;
-            $text = $text.lines()[0];
-            my $abbrevkey = "... $ot.chars() chars, $ot.lines().elems() lines, key: $key";
-            $text.substr-rw($text.chars min ($abbrev-length - $abbrevkey.chars max 0), *) = $abbrevkey;
-        }
-        $text;
-    }
-    my $num-cols = [max] @chunks>>.value.map([max] *>>.elems).flat;
-    if $num-cols == -Inf {
-        say @chunks.perl;
-        try say @chunks[0].key, ": empty.";
-        return;
-    }
-    my @col-sizes = 0 xx $num-cols;
-    for @chunks {
-        for .value {
-            @col-sizes >>[max]=>> $_>>.&strlen;
-        }
-    }
-    @col-sizes >>min=>> 60;
-
-    my @result;
-
-    for @chunks -> $chunk {
-        @result.push: "\n";
-        @result.push: $chunk.key ~ "\n";
-        for @($chunk.value) -> $line {
-            @result.push: "    ";
-            for @$line Z @col-sizes -> ($text, $fieldwidth) {
-                @result.push: $text.&abbreviate.&pad($fieldwidth + 2)
-            }
-            @result.push: "\n";
-        }
-    }
-    say @result.join("");
-}
-
-sub pad(Str() $str, $size) {
-    my $result = " " x $size;
-    $result.substr-rw(0..$str.&strlen) = $str;
-    $result;
 }
 
 sub MAIN(Int $port) {
@@ -190,6 +41,16 @@ sub MAIN(Int $port) {
         Nil;
     }
     });
+
+    my %abbreviated;
+    my %reverse-abbreviated;
+    my $abbreviate-length = 70;
+
+    sub print-table(@chunks) {
+        MoarVM::Remote::CLI::Formatter::print-table(@chunks, :%abbreviated, :%reverse-abbreviated, :$abbreviate-length);
+    }
+
+    my @last-command-handles;
 
     my $last-command;
 
@@ -262,8 +123,8 @@ sub MAIN(Int $port) {
 
                 my $framedetails = "$_<name> ($_<file>:$_<line>)" given @allframes[$_];
 
-                take "Frame {$_ + 1} - $framedetails - handle: &bold($handle)" =>
-                        format-lexicals-for-frame($lexicals);
+                take "Frame $_ - $framedetails - handle: &bold($handle)" =>
+                        format-lexicals-for-frame($lexicals, handles-seen => @last-command-handles);
             };
             print-table(@chunks);
             say "";
@@ -273,7 +134,7 @@ sub MAIN(Int $port) {
             @last-command-handles = Empty;
 
             my $result = await $remote.lexicals($0.Int.self);
-            my @table = "Lexicals of handle &bold($0.Int)" => format-lexicals-for-frame($result);
+            my @table = "Lexicals of handle &bold($0.Int)" => format-lexicals-for-frame($result, handles-seen => @last-command-handles);
             print-table @table;
         }
         when /:s meta[data]? (\d+) / {
@@ -412,12 +273,12 @@ sub MAIN(Int $port) {
         }
         when /:s color [(on|off)]?/ {
             with $0 {
-                $wants-color = $0.Str eq "on";
+                wants-color() = $0.Str eq "on";
                 say "colored output is now &bold($0.Str)";
             }
             else {
-                say "colored output is currently &bold($wants-color ?? "on" !! "off")";
-                say "(but color is not available; install Terminal::ANSIColor maybe?)" unless $has-color;
+                say "colored output is currently &bold(wants-color() ?? "on" !! "off")";
+                say "(but color is not available; install Terminal::ANSIColor maybe?)" unless has-color;
             }
         }
         default {
