@@ -61,7 +61,9 @@ our sub format-backtrace(@backtrace) is export {
 
 our sub print-table(@chunks is copy, :%abbreviated, :%reverse-abbreviated, :$abbreviate-length) is export {
     sub abbreviate(Str() $text is copy) {
-        return $text unless defined %abbreviated && defined $abbreviate-length;
+        if !defined %abbreviated or !defined $abbreviate-length {
+            return $text;
+        }
         state $wordlist;
         if strlen($text) > $abbreviate-length {
             my $key;
@@ -76,9 +78,9 @@ our sub print-table(@chunks is copy, :%abbreviated, :%reverse-abbreviated, :$abb
                     }
                 ).unique[^100].cache
             };
-            my @wordcount = flat 1 xx 20, 2 xx 40, 3 xx 100, 4 xx 100, 5 xx 100, 6 xx 100, 7..*;
-            if defined %reverse-abbreviated && (%reverse-abbreviated{$text}:exists) {
-                $key = $_
+            my @wordcount = flat 1 xx 20, 2 xx 40, 3 xx 100, 4 xx 100, 5 xx 100, 6 xx 100, 7 xx 100, 8 xx 100, 9 xx 100;
+            if defined %reverse-abbreviated and (%reverse-abbreviated{$text}:exists) {
+                $key = %reverse-abbreviated{$text};
             } else {
                 repeat {
                     $key = $wordlist.pick(@wordcount.shift)>>.lc.join("-");
