@@ -19,12 +19,14 @@ Type "help" in the debugger's CLI to see what commands are available to you.
     `[…] install/bin/moar --debug-port=9999 --debug-suspend --execname=[…]`
 5. Start the program you want to debug using that new script:
     `perl6-moar-remote-m  my-script.pl`
-6. (Optional) Write `assume thread 1` to assume tracking of first thread
-7. Set a breakpoint `breakpoint "my-script.pl" 1234 1 1`
+6. Start the debugger CLI app and have it connect to the same port that's in the
+   shell script from step 4: `moar-remote 9999`
+7. (Optional) Write `assume thread 1` to assume tracking of first thread
+8. Set a breakpoint `breakpoint "my-script.pl" 1234 1 1`
     the string is the filename and `1234` is the line number (`1 1` is the secret ingredient).
     Ensure the line number doesn't point to an empty line.
-8. Type `resume` to run your script.
-9. The breakpoint will trigger, you can type `all lexicals` to view all lexicals. The numbers
+9. Type `resume` to run your script.
+10. The breakpoint will trigger, you can type `all lexicals` to view all lexicals. The numbers
     shown next to them in bold are "handle" numbers.
-10. Find the object you want to dump and run `attributes 1234` (`1234` is the handle number)
-11. Type `help` to see all of the available commands.
+11. Find the object you want to dump and run `attributes 1234` (`1234` is the handle number)
+12. Type `help` to see all of the available commands.
