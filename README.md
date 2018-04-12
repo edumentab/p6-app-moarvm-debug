@@ -28,5 +28,10 @@ Type "help" in the debugger's CLI to see what commands are available to you.
 9. Type `resume` to run your script.
 10. The breakpoint will trigger, you can type `all lexicals` to view all lexicals. The numbers
     shown next to them in bold are "handle" numbers.
-11. Find the object you want to dump and run `attributes 1234` (`1234` is the handle number)
+11. Find the object you want to dump and run `metadata 1234` (`1234` is the handle number).
+    - If the features includes `attributes`, you can enter `attributes 1234` for this object.
+    - If the features includes `positional`, `positionals 1234` will work.
+    - If the features includes `associative`, `associatives 1234` will work.
+    - The `metadata` command is only needed if you don't know which of these commands is useful
+      for any given type.
 12. Type `help` to see all of the available commands.
