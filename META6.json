@@ -14,8 +14,8 @@
     "App::MoarVM::Debug::Breakpoints" : "lib/App/MoarVM/Debug/Breakpoints.pm6"
   },
   "resources" : [ ],
-  "source-url" : "git@github.com:edumentab/p6-app-moarvm-debug.git",
+  "source-url" : "https://github.com/edumentab/p6-app-moarvm-debug.git",
   "tags" : [ "MoarVM", "Debug", "API", "CLI", "Commandline", "Terminal", "Devel", "Development", "Client" ],
   "test-depends" : [ ],
-  "version" : "0.0.1"
+  "version" : "0.0.2"
 }
