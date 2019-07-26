@@ -17,7 +17,7 @@ multi sub boring-metadata($_ where *.starts-with("p6opaque"), $v) {
     False
 }
 
-sub MAIN(Int $port) {
+sub MAIN(Int $port, Int :$abbreviate-length is copy = 70) {
     note "Welcome to the MoarVM Remote Debugger";
     note "";
     note "For best results, please run this program inside rlwrap";
@@ -44,7 +44,6 @@ sub MAIN(Int $port) {
 
     my %abbreviated;
     my %reverse-abbreviated;
-    my $abbreviate-length = 70;
 
     sub print-table(@chunks) {
         MoarVM::Remote::CLI::Formatter::print-table(@chunks, :%abbreviated, :%reverse-abbreviated, :$abbreviate-length);
@@ -81,6 +80,31 @@ sub MAIN(Int $port) {
             my @frames := await $remote.dump($thread);
             my @table = "Stack trace of thread &bold($thread)" => format-backtrace(@frames);
             print-table @table;
+        }
+        when /:s [fr|frame] (\d+) [(\d+)||<?{ defined $assumed-thread }>||<!>] / {
+            my $frame-num = $0.Int;
+            my $thread = $1 ?? $1.Int.self !! $assumed-thread;
+            my @frames := await $remote.dump($thread);
+            if $frame-num < @frames {
+                # ${:bytecode_file("/Users/vrurg/src/Perl6/BO-Trading/lib/.precomp/F4586E0D974A9D7EE7CD910A6978305B9EBD4E57/C4/C4B0B4FF604F072E60052CB30401D1B21830E56D"), :file("/Users/vrurg/src/Perl6/BO-Trading/lib/BO-Trading/Scraper.pm6 (BO-Trading::Scraper)"), :line(148), :name(""), :type("Block")}
+                state %name-map =
+                    bytecode_file => "Bytecode file",
+                    file => "File",
+                    line => "Line",
+                    name => "Routine name",
+                    type => "Frame type";
+                my %frame = @frames[$frame-num];
+                my @table = "Frame &bold($frame-num) of thread &bold($thread)" => <bytecode_file file line name type>.map({
+                    if %frame{$_} {
+                        bold(%name-map{$_}), %frame{$_}
+                    }
+                }).cache;
+                temp $abbreviate-length *= 2;
+                print-table(@table)
+            }
+            else {
+                say "No frame $frame-num in thread $thread."
+            }
         }
         when / [tl|threads] / {
             my $result = await $remote.threads-list;
@@ -283,6 +307,10 @@ sub MAIN(Int $port) {
             say "Not going to assume any thread for further commands";
             $assumed-thread = Any;
         }
+        when /:s abbrev length (\d+) / {
+            $abbreviate-length = $0.Int;
+            say "Abbreviation length is set to $abbreviate-length";
+        }
         when /:s abbrev (.*) / {
             say my $header = "Contents of entry $0.Str():";
             say "=" x $header.chars;
@@ -319,6 +347,10 @@ sub MAIN(Int $port) {
                 &bold("dump") [thread number]
                     Print a stacktrace for the given thread.
                     Synonyms: &bold("bt")
+
+                &bold("frame") frame [thread number]
+                    Print single frame information.
+                    Synonyms: &bold("fr")
 
                 &bold("suspend") [thread number]
                 &bold("resume")  [thread number]
@@ -401,6 +433,9 @@ sub MAIN(Int $port) {
 
                 &bold("abbrev") [abbrev-key]
                     Display the full output for any abbreviated field.
+
+                &bold("abbrev length") length
+                    Change the default witdth of columns in printed tables.
 
                 &bold("debug") [on|off]
                     Turns debugging information on or off, or display whether it's on or off.
