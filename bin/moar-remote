@@ -313,6 +313,17 @@ sub MAIN(Int $port, Int :$abbreviate-length is copy = 70) {
                 }
             }
         }
+        when / invoke \s+ (\d+) [\s+ | $] $<arguments>=(( "i:" | "s:" | "n:" | s? "o:" ) ( \" <-["]>* \" | \S+ ) )* % \s+ $ / {
+            my @arguments = $<arguments>.map({
+                .[0] eq "i:"        ?? ("int", try +.[1]) !!
+                .[0] eq        "o:" ?? ("obj", try +.[1]) !!
+                .[0] eq "s:" ?? ("str", .[1].starts-with('"') && .[1].ends-with('"') ?? .[1].substr(1, *-1) !! .[1].Str) !!
+                .[0] eq "so:" ?? ("str", .[1].Int) !!
+                .[0] eq "n:" ?? ("num", .[1].Str.Num) !!
+                die "can't figure out this argument: $_.Str()"
+            });
+            say await $remote.invoke(1, $0.Int, @arguments);
+        }
         when /:s hll[sym]? [$<hllname>=\S+ [$<hllkey>=\S+]? ]? / {
             with $<hllname> {
                 with $<hllkey> {
