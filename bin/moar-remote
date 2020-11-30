@@ -322,7 +322,17 @@ sub MAIN(Int $port, Int :$abbreviate-length is copy = 70) {
                 .[0] eq "n:" ?? ("num", .[1].Str.Num) !!
                 die "can't figure out this argument: $_.Str()"
             });
-            say await $remote.invoke(1, $0.Int, @arguments);
+            $remote.invoke(1, $0.Int, @arguments).then(-> $_ is copy {
+                say "invocation result has arrived";
+                dd $_;
+                $_ = .result;
+                dd $_;
+                my @table = "Invocation result of &bold($0.Int) with &bold(+@arguments) arguments\n"
+                    => (.grep(*.key eq none(<type id>)).sort(*.value.^name).map(*.kv).cache);
+                dd @table;
+                print-table @table;
+                CATCH { .say }
+            });
         }
         when /:s hll[sym]? [$<hllname>=\S+ [$<hllkey>=\S+]? ]? / {
             with $<hllname> {
