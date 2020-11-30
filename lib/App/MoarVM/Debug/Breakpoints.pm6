@@ -7,8 +7,8 @@ sub output-breakpoint-notifications(Str $file, Int $line, Supply $notifications)
     start {
         react whenever $notifications.Supply {
             #.perl.say;
-            if .<frames>:exists {
-                my @this-backtrace = format-backtrace(.<frames>);
+            with .<frames> -> $frames {
+                my @this-backtrace = format-backtrace($frames);
 
                 print-table my @chunks =
                     "Breakpoint on $file:$line hit by thread &bold($_<thread>)!"
